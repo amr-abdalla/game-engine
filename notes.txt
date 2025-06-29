@@ -1,0 +1,5 @@
+init proc
+update proc
+Setup entry points (main)
+experiment with different files
+platformer physics? gravity, jumping
