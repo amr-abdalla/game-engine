@@ -13,6 +13,7 @@ package main
 	NATIVE_WIDTH :: 480
 	NATIVE_HEIGHT :: 270
 	WINDOW_SCALE :: 2
+    PLAYER_SCALE :: 1
 
 //Time proc
 	time_get :: proc() -> f64{ 
@@ -23,11 +24,40 @@ Game :: struct {
     window         : ^sdl2.Window,
     renderer       : ^sdl2.Renderer,
     target_texture : ^sdl2.Texture,
-    player_texture : ^sdl2.Texture,
-    draw_rect      : sdl2.Rect,
+    player         : Player,
     quit           : bool,
 	frame		   : i32,
 }
+
+Vector2 :: struct {
+	x, y: f64,
+}
+
+Player :: struct {
+    pos : Vector2,
+    vel : Vector2,
+    acc : Vector2,
+    tex : ^sdl2.Texture,
+    draw_rect: sdl2.Rect,
+}
+
+player_draw :: proc(p: ^Player, renderer: ^sdl2.Renderer) {
+    sdl2.RenderCopy(renderer, p.tex, nil, &p.draw_rect);
+}
+
+player_update :: proc(p: ^Player, delta_time: f64) {
+    delta_time_in_seconds := delta_time * 0.001;
+
+    p.vel.x += p.acc.x * delta_time_in_seconds;
+    p.vel.y += p.acc.y * delta_time_in_seconds;
+    p.pos.x += p.vel.x * delta_time_in_seconds;
+    p.pos.y += p.pos.y * delta_time_in_seconds;
+
+    // (cast to i32 for SDL)
+    p.draw_rect.x = i32(p.pos.x);
+    p.draw_rect.y = i32(p.pos.y);
+}
+
 
 init :: proc() -> Game {
     // ── SDL & image ──────────────────────────────
@@ -53,20 +83,32 @@ init :: proc() -> Game {
                                  sdl2.TextureAccess.TARGET,
                                  NATIVE_WIDTH, NATIVE_HEIGHT);
 
+    sdl2.SetTextureScaleMode(target, sdl2.ScaleMode.Nearest);
     // ── sprite texture ────────────────────────────
-    player := image.LoadTexture(renderer, "../resources/basic.png");
-    if player == nil {
+    player_tex := image.LoadTexture(renderer, "../resources/basic-shrunk.png");
+    if player_tex == nil {
         fmt.printf("Texture load failed: %s\n", sdl2.GetError());
         return Game{};
     }
 
-    rect := sdl2.Rect{20, 120, 0, 0};
-    sdl2.QueryTexture(player, nil, nil, &rect.w, &rect.h);
+    tex_w, tex_h: i32
+    sdl2.QueryTexture(player_tex, nil, nil, &tex_w, &tex_h)
+
+    scaled_w := i32(f32(tex_w) * PLAYER_SCALE)
+    scaled_h := i32(f32(tex_h) * PLAYER_SCALE)
+
+    player := Player{
+        pos  = Vector2{240,0},
+        vel  = Vector2{}, // zero
+        acc  = Vector2{-10,0},
+        tex  = player_tex,
+        draw_rect = sdl2.Rect{240, 0, scaled_w, scaled_h},
+    };
 
     return Game{
         window, renderer,
         target, player,
-        rect, false, 0
+        false, 0
     };
 }
 
@@ -83,17 +125,17 @@ update :: proc(game: ^Game) {
 
     // ── input ────────────────────────────
     keys := sdl2.GetKeyboardState(nil);
-    game.draw_rect.x += 7 * (i32(keys[sdl2.SCANCODE_RIGHT]) -
-                              i32(keys[sdl2.SCANCODE_LEFT]));
-    game.draw_rect.y += 7 * (i32(keys[sdl2.SCANCODE_DOWN]) -
-                              i32(keys[sdl2.SCANCODE_UP]));
+   // game.draw_rect.x += 7 * (i32(keys[sdl2.SCANCODE_RIGHT]) -
+   //                          i32(keys[sdl2.SCANCODE_LEFT]));
+   // game.draw_rect.y += 7 * (i32(keys[sdl2.SCANCODE_DOWN]) -
+   //                           i32(keys[sdl2.SCANCODE_UP]));
 
+    player_update(&game.player, TARGET_DELTA_TIME);
     // ── render pass on target texture ────
     sdl2.SetRenderDrawColor(game.renderer, 0xBD, 0xE3, 255, 255);
     sdl2.SetRenderTarget(game.renderer, game.target_texture);
     sdl2.RenderClear(game.renderer);
-    sdl2.RenderCopy(game.renderer, game.player_texture, nil,
-                    &game.draw_rect);
+    player_draw(&game.player, game.renderer);
 
     // ── present to window ────────────────
     sdl2.SetRenderTarget(game.renderer, nil);
@@ -110,7 +152,7 @@ update :: proc(game: ^Game) {
 }
 
 shutdown :: proc(game: ^Game) {
-    if game.player_texture != nil  do sdl2.DestroyTexture(game.player_texture);
+    if game.player.tex     != nil  do sdl2.DestroyTexture(game.player.tex);
     if game.target_texture != nil  do sdl2.DestroyTexture(game.target_texture);
     if game.renderer       != nil  do sdl2.DestroyRenderer(game.renderer);
     if game.window         != nil  do sdl2.DestroyWindow(game.window);
@@ -119,12 +161,14 @@ shutdown :: proc(game: ^Game) {
 
 main :: proc() {
     game := init();
-    if game.window == nil { // init failed
+    if game.window == nil 
+    {
         return;
     }
     defer shutdown(&game);
 
-    for !game.quit {
+    for !game.quit 
+    {
         update(&game);
 		game.frame += 1
     }
