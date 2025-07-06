@@ -29,36 +29,6 @@ Game :: struct {
 	frame		   : i32,
 }
 
-Vector2 :: struct {
-	x, y: f64,
-}
-
-Player :: struct {
-    pos : Vector2,
-    vel : Vector2,
-    acc : Vector2,
-    tex : ^sdl2.Texture,
-    draw_rect: sdl2.Rect,
-}
-
-player_draw :: proc(p: ^Player, renderer: ^sdl2.Renderer) {
-    sdl2.RenderCopy(renderer, p.tex, nil, &p.draw_rect);
-}
-
-player_update :: proc(p: ^Player, delta_time: f64) {
-    delta_time_in_seconds := delta_time * 0.001;
-
-    p.vel.x += p.acc.x * delta_time_in_seconds;
-    p.vel.y += p.acc.y * delta_time_in_seconds;
-    p.pos.x += p.vel.x * delta_time_in_seconds;
-    p.pos.y += p.pos.y * delta_time_in_seconds;
-
-    // (cast to i32 for SDL)
-    p.draw_rect.x = i32(p.pos.x);
-    p.draw_rect.y = i32(p.pos.y);
-}
-
-
 init :: proc() -> Game {
     // ── SDL & image ──────────────────────────────
     sdl2.SetHint(sdl2.HINT_RENDER_SCALE_QUALITY, "0");
@@ -84,26 +54,13 @@ init :: proc() -> Game {
                                  NATIVE_WIDTH, NATIVE_HEIGHT);
 
     sdl2.SetTextureScaleMode(target, sdl2.ScaleMode.Nearest);
-    // ── sprite texture ────────────────────────────
-    player_tex := image.LoadTexture(renderer, "../resources/basic-shrunk.png");
-    if player_tex == nil {
-        fmt.printf("Texture load failed: %s\n", sdl2.GetError());
+
+    player := player_init(renderer);
+
+    if player.tex == nil
+    {
         return Game{};
     }
-
-    tex_w, tex_h: i32
-    sdl2.QueryTexture(player_tex, nil, nil, &tex_w, &tex_h)
-
-    scaled_w := i32(f32(tex_w) * PLAYER_SCALE)
-    scaled_h := i32(f32(tex_h) * PLAYER_SCALE)
-
-    player := Player{
-        pos  = Vector2{240,0},
-        vel  = Vector2{}, // zero
-        acc  = Vector2{-10,0},
-        tex  = player_tex,
-        draw_rect = sdl2.Rect{240, 0, scaled_w, scaled_h},
-    };
 
     return Game{
         window, renderer,
@@ -111,6 +68,20 @@ init :: proc() -> Game {
         false, 0
     };
 }
+
+draw :: proc(game: ^Game) {
+        // ── render pass on target texture ────
+    sdl2.SetRenderDrawColor(game.renderer, 0xBD, 0xE3, 255, 255);
+    sdl2.SetRenderTarget(game.renderer, game.target_texture);
+    sdl2.RenderClear(game.renderer);
+    player_draw(&game.player, game.renderer);
+
+    // ── present to window ────────────────
+    sdl2.SetRenderTarget(game.renderer, nil);
+    sdl2.RenderCopy(game.renderer, game.target_texture, nil, nil);
+    sdl2.RenderPresent(game.renderer);
+}
+
 
 update :: proc(game: ^Game) {
     frame_start := time_get();
@@ -131,17 +102,8 @@ update :: proc(game: ^Game) {
    //                           i32(keys[sdl2.SCANCODE_UP]));
 
     player_update(&game.player, TARGET_DELTA_TIME);
-    // ── render pass on target texture ────
-    sdl2.SetRenderDrawColor(game.renderer, 0xBD, 0xE3, 255, 255);
-    sdl2.SetRenderTarget(game.renderer, game.target_texture);
-    sdl2.RenderClear(game.renderer);
-    player_draw(&game.player, game.renderer);
 
-    // ── present to window ────────────────
-    sdl2.SetRenderTarget(game.renderer, nil);
-    sdl2.RenderCopy(game.renderer, game.target_texture, nil, nil);
-    sdl2.RenderPresent(game.renderer);
-
+    draw(game);
     // ── frame cap ────────────────────────
     windows.timeBeginPeriod(1);
     wait := TARGET_DELTA_TIME - (time_get() - frame_start);
