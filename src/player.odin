@@ -44,11 +44,11 @@ player_init :: proc(renderer: ^sdl2.Renderer) -> Player {
 
 player_update :: proc(p: ^Player, delta_time_ms: f64, input_x: i32, input_y: i32) {
     delta_time_in_seconds := delta_time_ms * 0.001;
-    input := vectors.Vector2{f64(input_x), f64(input_y)};
+    input := vectors.Vector2{f32(input_x), f32(input_y)};
 
     if input_x != 0 || input_y != 0 
     {
-        p.acc = vectors.multiply(input, ACCELERATION_RATE);
+        p.acc = input * ACCELERATION_RATE;
     }
     else if p.vel.x != 0 && p.vel.y != 0
     {
@@ -59,8 +59,8 @@ player_update :: proc(p: ^Player, delta_time_ms: f64, input_x: i32, input_y: i32
         p.acc = vectors.Vector2{};
     }
 
-    p.vel = vectors.sum(p.vel, vectors.multiply(p.acc, delta_time_in_seconds));
-    p.pos = vectors.sum(p.pos, vectors.multiply(p.vel, delta_time_in_seconds));
+    p.vel = vectors.sum(p.vel, p.acc * f32(delta_time_in_seconds));
+    p.pos = vectors.sum(p.pos, p.vel * f32(delta_time_in_seconds));
 
     p.draw_rect.x = i32(p.pos.x);
     p.draw_rect.y = i32(p.pos.y);

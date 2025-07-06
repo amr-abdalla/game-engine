@@ -15,10 +15,32 @@ package main
 	WINDOW_SCALE :: 2
     PLAYER_SCALE :: 1
 
-//Time proc
-	time_get :: proc() -> f64{ 
-		return f64(sdl2.GetPerformanceCounter())*1000/f64(sdl2.GetPerformanceFrequency())
-	}
+//Proc
+time_get :: proc() -> f64{ 
+	return f64(sdl2.GetPerformanceCounter())*1000/f64(sdl2.GetPerformanceFrequency())
+}
+
+draw :: proc(game: ^Game) {
+        // ── render pass on target texture ────
+    sdl2.SetRenderDrawColor(game.renderer, 0xBD, 0xE3, 255, 255);
+    sdl2.SetRenderTarget(game.renderer, game.target_texture);
+    sdl2.RenderClear(game.renderer);
+    player_draw(&game.player, game.renderer);
+
+    // ── present to window ────────────────
+    sdl2.SetRenderTarget(game.renderer, nil);
+    sdl2.RenderCopy(game.renderer, game.target_texture, nil, nil);
+    sdl2.RenderPresent(game.renderer);
+}
+
+get_input :: proc() -> (x: i32, y: i32) {
+    
+    keys := sdl2.GetKeyboardState(nil);
+    x_input := i32(keys[sdl2.SCANCODE_RIGHT]) - i32(keys[sdl2.SCANCODE_LEFT]);
+    y_input := (i32(keys[sdl2.SCANCODE_DOWN]) - i32(keys[sdl2.SCANCODE_UP]));
+
+    return x_input, y_input;
+}
 
 Game :: struct {
     window         : ^sdl2.Window,
@@ -69,28 +91,6 @@ init :: proc() -> Game {
     };
 }
 
-draw :: proc(game: ^Game) {
-        // ── render pass on target texture ────
-    sdl2.SetRenderDrawColor(game.renderer, 0xBD, 0xE3, 255, 255);
-    sdl2.SetRenderTarget(game.renderer, game.target_texture);
-    sdl2.RenderClear(game.renderer);
-    player_draw(&game.player, game.renderer);
-
-    // ── present to window ────────────────
-    sdl2.SetRenderTarget(game.renderer, nil);
-    sdl2.RenderCopy(game.renderer, game.target_texture, nil, nil);
-    sdl2.RenderPresent(game.renderer);
-}
-
-get_input :: proc() -> (x: i32, y: i32) {
-    
-    keys := sdl2.GetKeyboardState(nil);
-    x_input := i32(keys[sdl2.SCANCODE_RIGHT]) - i32(keys[sdl2.SCANCODE_LEFT]);
-    y_input := (i32(keys[sdl2.SCANCODE_DOWN]) - i32(keys[sdl2.SCANCODE_UP]));
-
-    return x_input, y_input;
-}
-
 update :: proc(game: ^Game) {
     frame_start := time_get();
 
@@ -103,10 +103,11 @@ update :: proc(game: ^Game) {
     }
 
     // ── input ────────────────────────────
-    input_x, input_y := get_input();   
+    input_x, input_y := get_input();
     player_update(&game.player, TARGET_DELTA_TIME, input_x, input_y);
 
     draw(game);
+    
     // ── frame cap ────────────────────────
     windows.timeBeginPeriod(1);
     wait := TARGET_DELTA_TIME - (time_get() - frame_start);
