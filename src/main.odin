@@ -82,6 +82,14 @@ draw :: proc(game: ^Game) {
     sdl2.RenderPresent(game.renderer);
 }
 
+get_input :: proc() -> (x: i32, y: i32) {
+    
+    keys := sdl2.GetKeyboardState(nil);
+    x_input := i32(keys[sdl2.SCANCODE_RIGHT]) - i32(keys[sdl2.SCANCODE_LEFT]);
+    y_input := (i32(keys[sdl2.SCANCODE_DOWN]) - i32(keys[sdl2.SCANCODE_UP]));
+
+    return x_input, y_input;
+}
 
 update :: proc(game: ^Game) {
     frame_start := time_get();
@@ -95,13 +103,8 @@ update :: proc(game: ^Game) {
     }
 
     // ── input ────────────────────────────
-    keys := sdl2.GetKeyboardState(nil);
-   // game.draw_rect.x += 7 * (i32(keys[sdl2.SCANCODE_RIGHT]) -
-   //                          i32(keys[sdl2.SCANCODE_LEFT]));
-   // game.draw_rect.y += 7 * (i32(keys[sdl2.SCANCODE_DOWN]) -
-   //                           i32(keys[sdl2.SCANCODE_UP]));
-
-    player_update(&game.player, TARGET_DELTA_TIME);
+    input_x, input_y := get_input();   
+    player_update(&game.player, TARGET_DELTA_TIME, input_x, input_y);
 
     draw(game);
     // ── frame cap ────────────────────────
